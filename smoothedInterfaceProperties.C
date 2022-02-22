@@ -106,6 +106,59 @@ void Foam::smoothedInterfaceProperties::correctContactAngle
     }
 }
 
+void Foam::smoothedInterfaceProperties::smoothen
+(
+    volScalarField& smooth_func
+) 
+{
+    const fvMesh& mesh = smooth_func.mesh();
+    const surfaceVectorField& Sf = mesh.Sf();
+
+    const labelList& own = mesh.faceOwner();
+    const labelList& nei = mesh.faceNeighbour();
+
+    for(int iter = 0; iter < smoothItr_; iter++)
+    {
+    	scalarField smooth_cal(mesh.nCells(),scalar(0));
+
+    	scalarField sum_area(mesh.nCells(),scalar(0));
+
+		surfaceScalarField smoothF = fvc::interpolate(smooth_func);
+
+		for(int facei = 0; facei < nei.size(); facei++) //KVA note: should be own???
+		{
+			smooth_cal[own[facei]] += smoothF[facei]*mag(Sf[facei]);
+			sum_area[own[facei]] += mag(Sf[facei]);
+		}
+
+		forAll(nei,facei)
+		{
+			smooth_cal[nei[facei]] += smoothF[facei]*mag(Sf[facei]);
+			sum_area[nei[facei]] += mag(Sf[facei]);
+		}
+
+		forAll(mesh.boundary(), patchi)
+		{
+			const UList<label>& pFaceCells = mesh.boundary()[patchi].faceCells();
+
+			const fvsPatchScalarField& pssf = smoothF.boundaryField()[patchi];
+
+			forAll(mesh.boundary()[patchi], facei)
+			{
+			   smooth_cal[pFaceCells[facei]] += pssf[facei]*mag(Sf[facei]);
+			   sum_area[pFaceCells[facei]] += mag(Sf[facei]);
+			}
+		}
+
+		forAll(mesh.cells(),celli)
+		{
+			smooth_func[celli] = smooth_cal[celli]/sum_area[celli];
+		}
+
+		smooth_func.correctBoundaryConditions();
+
+    }
+}
 
 void Foam::smoothedInterfaceProperties::calculateK()
 {
@@ -114,6 +167,10 @@ void Foam::smoothedInterfaceProperties::calculateK()
 
     smoothAlpha_ = alpha1_;
 
+	// 1)
+	// smoothen(smoothAlpha_);
+
+	// 2)
     for (int i = 0; i < smoothItr_; ++i)
 	{
     	//Lafaurie smooth function

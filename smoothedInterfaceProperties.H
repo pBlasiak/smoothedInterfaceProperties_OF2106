@@ -96,6 +96,8 @@ class smoothedInterfaceProperties
             const surfaceVectorField::Boundary& gradAlphaf
         ) const;
 
+		void smoothen(volScalarField& smAlpha);
+
         //- Re-calculate the interface curvature
         void calculateK();
 
